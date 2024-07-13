@@ -11,7 +11,9 @@ class Mesh:
     def __init__(self, mesh_size: int = DEFAULT_SIZE):
         self.mesh_size = mesh_size
         self.nodes = []
+        self.elements = []
         self._gen_mesh()
+        self._gen_elements()
 
     def _gen_mesh(self):
         id = 0
@@ -19,6 +21,32 @@ class Mesh:
             for y in range(self.mesh_size):
                 self.nodes.append(Node(id, x, y))
                 id += 1
+
+    def _gen_elements(self):
+        id = 0
+        for x in range(0, self.mesh_size, 2):
+            for y in range(0, self.mesh_size, 2):
+                self.elements.append(
+                    Element(id, self._get_elemental_nodes_from_corner(x, y))
+                )
+                id += 1
+
+    def _get_elemental_nodes_from_corner(self, x: int, y: int) -> List:
+        """Returns a list of nodes making up an element, given one corner of the element
+
+        Args:
+            x (int): x value of start node
+            y (int): y value of start node
+
+        Returns:
+            List: list of nodes making up an element
+        """
+        return [
+            self.nodes[self._get_node_id(x, y)],
+            self.nodes[self._get_node_id(x + 1, y)],
+            self.nodes[self._get_node_id(x, y + 1)],
+            self.nodes[self._get_node_id(x + 1, y + 1)],
+        ]
 
     def _get_node_id(self, x: int, y: int):
         """Determines the node id in a mesh based on the way the mesh is generated"""
@@ -57,8 +85,9 @@ class Node:
 
 
 class Element:
-    def __init__(self, nodes: List[Node]) -> None:
+    def __init__(self, id: int, nodes: List[Node]) -> None:
         self.nodes = nodes
+        self.id = id
 
     def get_mean_temp(self) -> float:
         return sum(node.temp for node in self.nodes) / 4
