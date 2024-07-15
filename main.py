@@ -70,7 +70,7 @@ class Node:
 
 def gen_matrix(mesh: Mesh, tau):
     matrix = np.zeros((mesh.mesh_size**2, mesh.mesh_size**2))
-    # Generate equations for all interior elements
+    # Generate equations for all interior nodes
     for x in range(2, mesh.mesh_size - 1):
         for y in range(2, mesh.mesh_size - 1):
             matrix_row = np.zeros(mesh.mesh_size**2)
@@ -92,7 +92,75 @@ def gen_matrix(mesh: Mesh, tau):
 
             matrix[mesh.get_node_id(x, y), :] = matrix_row
 
-    # Generate equations for boundary elements
+    # Generate equations for boundary nodes assuming insulated boundaries
+
+    # Generate equations for nodes bordering the boundary on one side (not a corner)
+    for x in range(2, mesh.mesh_size - 2):
+        # Top border
+        if not mesh.nodes[mesh.get_node_id(x, 1)].is_fixed_temp:
+            matrix_row = np.zeros(mesh.mesh_size**2)
+            matrix_row[mesh.get_node_id(x - 1, 1)] = tau
+            matrix_row[mesh.get_node_id(x + 1, 1)] = tau
+            matrix_row[mesh.get_node_id(x, 2)] = tau
+            matrix_row[mesh.get_node_id(x, 1)] = 1 - 4 * tau
+            matrix[mesh.get_node_id(x, 1), :] = matrix_row
+
+        # Bottom border
+        if not mesh.nodes[mesh.get_node_id(x, mesh.mesh_size - 1)].is_fixed_temp:
+            matrix_row = np.zeros(mesh.mesh_size**2)
+            matrix_row[mesh.get_node_id(x - 1, mesh.mesh_size - 1)] = tau
+            matrix_row[mesh.get_node_id(x + 1, mesh.mesh_size - 1)] = tau
+            matrix_row[mesh.get_node_id(x, mesh.mesh_size - 2)] = tau
+            matrix_row[mesh.get_node_id(x, mesh.mesh_size - 1)] = 1 - 4 * tau
+            matrix[mesh.get_node_id(x, 1), :] = matrix_row
+
+    for y in range(2, mesh.mesh_size - 2):
+        # Left border
+        if not mesh.nodes[mesh.get_node_id(x, 1)].is_fixed_temp:
+            matrix_row = np.zeros(mesh.mesh_size**2)
+            matrix_row[mesh.get_node_id(2, y)] = tau
+            matrix_row[mesh.get_node_id(1, y - 1)] = tau
+            matrix_row[mesh.get_node_id(1, y + 1)] = tau
+            matrix_row[mesh.get_node_id(1, y)] = 1 - 4 * tau
+            matrix[mesh.get_node_id(1, y), :] = matrix_row
+
+        # Right border
+        if not mesh.nodes[mesh.get_node_id(x, 1)].is_fixed_temp:
+            matrix_row = np.zeros(mesh.mesh_size**2)
+            matrix_row[mesh.get_node_id(mesh.mesh_size - 2, y)] = tau
+            matrix_row[mesh.get_node_id(mesh.mesh_size - 1, y - 1)] = tau
+            matrix_row[mesh.get_node_id(mesh.mesh_size - 1, y + 1)] = tau
+            matrix_row[mesh.get_node_id(mesh.mesh_size - 1, y)] = 1 - 4 * tau
+            matrix[mesh.get_node_id(mesh.mesh_size - 1, y), :] = matrix_row
+
+    # Generate equations for corner nodes
+    # Top Left
+    matrix_row = np.zeros(mesh.mesh_size**2)
+    matrix_row[mesh.get_node_id(2, 1)] = tau
+    matrix_row[mesh.get_node_id(1, 2)] = tau
+    matrix_row[mesh.get_node_id(1, 1)] = 1 - 4 * tau
+    matrix[mesh.get_node_id(1, 1), :] = matrix_row
+
+    # Top Right
+    matrix_row = np.zeros(mesh.mesh_size**2)
+    matrix_row[mesh.get_node_id(mesh.mesh_size - 2, 1)] = tau
+    matrix_row[mesh.get_node_id(1, mesh.mesh_size - 2)] = tau
+    matrix_row[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 1)] = 1 - 4 * tau
+    matrix[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 1), :] = matrix_row
+
+    # Bottom Left
+    matrix_row = np.zeros(mesh.mesh_size**2)
+    matrix_row[mesh.get_node_id(2, y)] = tau
+    matrix_row[mesh.get_node_id(1, mesh.mesh_size - 2)] = tau
+    matrix_row[mesh.get_node_id(1, mesh.mesh_size - 1)] = 1 - 4 * tau
+    matrix[mesh.get_node_id(1, mesh.mesh_size - 1), :] = matrix_row
+
+    # Bottom Right
+    matrix_row = np.zeros(mesh.mesh_size**2)
+    matrix_row[mesh.get_node_id(mesh.mesh_size - 2, mesh.mesh_size - 1)] = tau
+    matrix_row[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 2)] = tau
+    matrix_row[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 1)] = 1 - 4 * tau
+    matrix[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 1), :] = matrix_row
 
     return matrix
 
