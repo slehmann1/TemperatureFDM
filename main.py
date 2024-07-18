@@ -8,7 +8,7 @@ class Mesh:
     Handles the Mesh and Boundary Conditions
     """
 
-    DEFAULT_SIZE = 100  # Width and height in terms of number of nodes
+    DEFAULT_SIZE = 10  # Width and height in terms of number of nodes
 
     def __init__(self, mesh_size: int = DEFAULT_SIZE):
         self.mesh_size = mesh_size
@@ -26,6 +26,12 @@ class Mesh:
                     self.nodes.append(Node(id, x, y))
                 id += 1
 
+    def get_node_temp_or_nil(self, x: int, y: int):
+        try:
+            return self.nodes[self.get_node_id(x, y)].temp[-1]
+        except IndexError:
+            return 0.0
+
     def get_node_id(self, x: int, y: int):
         """Determines the node id in a mesh based on the way the mesh is generated"""
         return x * self.mesh_size + y
@@ -41,12 +47,12 @@ class Mesh:
         """
         # Set all node values
         for node in self.nodes:
-            node.temp = initial_guess
+            node.temp.append(initial_guess)
 
         # Set boundary conditions
         for bc_tuple in boundary_conditions:
             node_id = self.get_node_id(bc_tuple[0], bc_tuple[1])
-            self.nodes[node_id].temp = bc_tuple[2]
+            self.nodes[node_id].temp[0] = bc_tuple[2]
             self.nodes[node_id].is_fixed_temp = True
 
 
@@ -64,110 +70,44 @@ class Node:
         self.x = x
         self.y = y
         self.is_fixed_temp = is_fixed_temp
-        self.temp = -1
+        self.temp = []
         self.is_boundary_node = is_boundary_node
 
 
-def gen_matrix(mesh: Mesh, tau):
-    matrix = np.zeros((mesh.mesh_size**2, mesh.mesh_size**2))
-    # Generate equations for all interior nodes
-    for x in range(2, mesh.mesh_size - 1):
-        for y in range(2, mesh.mesh_size - 1):
-            matrix_row = np.zeros(mesh.mesh_size**2)
+def get_temp(
+    tau: float, t_node_i: float, t_left=0.0, t_right=0.0, t_top=0.0, t_bottom=0.0
+):
+    # Driving FDM Equation Without Heat Generation
+    # T_Node_i+1 = tau(T_left_i + T_top_i + T_right_i + T_bottom_i) + (1-4tau)(T_Node_i)
+    return tau * (t_left + t_top + t_right + t_bottom) + (1 - 4 * tau) * (t_node_i)
 
-            if mesh.nodes[mesh.get_node_id(x, y)].is_fixed_temp:
-                matrix_row[mesh.get_node_id(x, y)] = mesh.nodes[
-                    mesh.get_node_id(x, y)
-                ].temp
 
-            else:
-                # Driving FDM Equation Without Heat Generation
-                # T_Node_i+1 = tau(T_left_i + T_top_i + T_right_i + T_bottom_i) + (1-4tau)(T_Node_i)
+def calc_time_iteration(mesh: Mesh, tau: float):
+    for x in range(0, mesh.mesh_size):
+        for y in range(0, mesh.mesh_size):
+            t_left = mesh.get_node_temp_or_nil(x - 1, y)
+            t_right = mesh.get_node_temp_or_nil(x + 1, y)
+            t_top = mesh.get_node_temp_or_nil(x, y + 1)
+            t_bottom = mesh.get_node_temp_or_nil(x, y - 1)
+            t_node_i = mesh.nodes[mesh.get_node_id(x, y)].temp[-1]
+            mesh.nodes[mesh.get_node_id(x, y)].temp.append(
+                get_temp(tau, t_node_i, t_left, t_right, t_top, t_bottom)
+            )
 
-                matrix_row[mesh.get_node_id(x - 1, y)] = tau
-                matrix_row[mesh.get_node_id(x + 1, y)] = tau
-                matrix_row[mesh.get_node_id(x, y - 1)] = tau
-                matrix_row[mesh.get_node_id(x, y + 1)] = tau
-                matrix_row[mesh.get_node_id(x, y)] = 1 - 4 * tau
 
-            matrix[mesh.get_node_id(x, y), :] = matrix_row
+def print_mesh_temps(mesh: Mesh, index: int):
+    line = ""
+    for x in range(0, mesh.mesh_size):
+        for y in range(0, mesh.mesh_size):
+            line += f"{mesh.get_node_temp_or_nil(x, y):.2f} "
+        line += "\n"
 
-    # Generate equations for boundary nodes assuming insulated boundaries
-
-    # Generate equations for nodes bordering the boundary on one side (not a corner)
-    for x in range(2, mesh.mesh_size - 2):
-        # Top border
-        if not mesh.nodes[mesh.get_node_id(x, 1)].is_fixed_temp:
-            matrix_row = np.zeros(mesh.mesh_size**2)
-            matrix_row[mesh.get_node_id(x - 1, 1)] = tau
-            matrix_row[mesh.get_node_id(x + 1, 1)] = tau
-            matrix_row[mesh.get_node_id(x, 2)] = tau
-            matrix_row[mesh.get_node_id(x, 1)] = 1 - 4 * tau
-            matrix[mesh.get_node_id(x, 1), :] = matrix_row
-
-        # Bottom border
-        if not mesh.nodes[mesh.get_node_id(x, mesh.mesh_size - 1)].is_fixed_temp:
-            matrix_row = np.zeros(mesh.mesh_size**2)
-            matrix_row[mesh.get_node_id(x - 1, mesh.mesh_size - 1)] = tau
-            matrix_row[mesh.get_node_id(x + 1, mesh.mesh_size - 1)] = tau
-            matrix_row[mesh.get_node_id(x, mesh.mesh_size - 2)] = tau
-            matrix_row[mesh.get_node_id(x, mesh.mesh_size - 1)] = 1 - 4 * tau
-            matrix[mesh.get_node_id(x, 1), :] = matrix_row
-
-    for y in range(2, mesh.mesh_size - 2):
-        # Left border
-        if not mesh.nodes[mesh.get_node_id(x, 1)].is_fixed_temp:
-            matrix_row = np.zeros(mesh.mesh_size**2)
-            matrix_row[mesh.get_node_id(2, y)] = tau
-            matrix_row[mesh.get_node_id(1, y - 1)] = tau
-            matrix_row[mesh.get_node_id(1, y + 1)] = tau
-            matrix_row[mesh.get_node_id(1, y)] = 1 - 4 * tau
-            matrix[mesh.get_node_id(1, y), :] = matrix_row
-
-        # Right border
-        if not mesh.nodes[mesh.get_node_id(x, 1)].is_fixed_temp:
-            matrix_row = np.zeros(mesh.mesh_size**2)
-            matrix_row[mesh.get_node_id(mesh.mesh_size - 2, y)] = tau
-            matrix_row[mesh.get_node_id(mesh.mesh_size - 1, y - 1)] = tau
-            matrix_row[mesh.get_node_id(mesh.mesh_size - 1, y + 1)] = tau
-            matrix_row[mesh.get_node_id(mesh.mesh_size - 1, y)] = 1 - 4 * tau
-            matrix[mesh.get_node_id(mesh.mesh_size - 1, y), :] = matrix_row
-
-    # Generate equations for corner nodes
-    # Top Left
-    matrix_row = np.zeros(mesh.mesh_size**2)
-    matrix_row[mesh.get_node_id(2, 1)] = tau
-    matrix_row[mesh.get_node_id(1, 2)] = tau
-    matrix_row[mesh.get_node_id(1, 1)] = 1 - 4 * tau
-    matrix[mesh.get_node_id(1, 1), :] = matrix_row
-
-    # Top Right
-    matrix_row = np.zeros(mesh.mesh_size**2)
-    matrix_row[mesh.get_node_id(mesh.mesh_size - 2, 1)] = tau
-    matrix_row[mesh.get_node_id(1, mesh.mesh_size - 2)] = tau
-    matrix_row[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 1)] = 1 - 4 * tau
-    matrix[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 1), :] = matrix_row
-
-    # Bottom Left
-    matrix_row = np.zeros(mesh.mesh_size**2)
-    matrix_row[mesh.get_node_id(2, y)] = tau
-    matrix_row[mesh.get_node_id(1, mesh.mesh_size - 2)] = tau
-    matrix_row[mesh.get_node_id(1, mesh.mesh_size - 1)] = 1 - 4 * tau
-    matrix[mesh.get_node_id(1, mesh.mesh_size - 1), :] = matrix_row
-
-    # Bottom Right
-    matrix_row = np.zeros(mesh.mesh_size**2)
-    matrix_row[mesh.get_node_id(mesh.mesh_size - 2, mesh.mesh_size - 1)] = tau
-    matrix_row[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 2)] = tau
-    matrix_row[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 1)] = 1 - 4 * tau
-    matrix[mesh.get_node_id(mesh.mesh_size - 1, mesh.mesh_size - 1), :] = matrix_row
-
-    return matrix
+    print(line)
 
 
 if __name__ == "__main__":
 
-    bcs = [(21, 37, 52.2)]
+    bcs = [(5, 5, 52.2)]
     k = 167  # W/m-k for Aluminium
     density = 2700  # kg/m^3 for Aluminium
     heat_capacity = 0.896  # J/g-k for Aluminium
@@ -180,4 +120,9 @@ if __name__ == "__main__":
     mesh = Mesh()
     mesh.init_values(bcs, 21.1)
 
-    gen_matrix(mesh, tau)
+    calc_time_iteration(mesh, tau)
+    print_mesh_temps(mesh, 0)
+    calc_time_iteration(mesh, tau)
+    print_mesh_temps(mesh, 0)
+    calc_time_iteration(mesh, tau)
+    print_mesh_temps(mesh, 0)
