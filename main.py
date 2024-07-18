@@ -1,5 +1,8 @@
 from typing import List, Tuple
 
+import matplotlib.cm as cm
+import matplotlib.colors as mcol
+import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -105,6 +108,39 @@ def print_mesh_temps(mesh: Mesh, index: int):
     print(line)
 
 
+def show_plot(mesh: Mesh, time_step: float):
+    plt.plot()
+    plt.ion()
+    plt.show()
+
+    # Create a blue, green, yellow, red colourmap
+    cmap = mcol.LinearSegmentedColormap.from_list(
+        "MyCmapName", ["b", "#00FF00", "#FFF000", "r"]
+    )
+
+    for time_index in range(0, len(mesh.nodes[0].temp)):
+
+        plt.title(f"Temperature for time = {time_step*time_index:.2f}")
+
+        # Generate Z values
+        z_vals = np.zeros([mesh.mesh_size, mesh.mesh_size])
+
+        for x in range(0, mesh.mesh_size):
+            for y in range(0, mesh.mesh_size):
+                z_vals[x, y] = mesh.nodes[mesh.get_node_id(x, y)].temp[time_index]
+
+        im = plt.pcolormesh(
+            range(0, mesh.mesh_size), range(0, mesh.mesh_size), z_vals, cmap=cmap
+        )
+
+        if time_index == 0:
+            # Set the colourmap on the first iteration. This step will contain the minimum and maximum values
+            plt.gcf().colorbar(im)
+
+        plt.draw()
+        plt.pause(time_step)
+
+
 if __name__ == "__main__":
 
     bcs = [(5, 5, 52.2)]
@@ -120,9 +156,7 @@ if __name__ == "__main__":
     mesh = Mesh()
     mesh.init_values(bcs, 21.1)
 
-    calc_time_iteration(mesh, tau)
-    print_mesh_temps(mesh, 0)
-    calc_time_iteration(mesh, tau)
-    print_mesh_temps(mesh, 0)
-    calc_time_iteration(mesh, tau)
-    print_mesh_temps(mesh, 0)
+    for _ in range(0, int(total_time / time_step)):
+        calc_time_iteration(mesh, tau)
+
+    show_plot(mesh, time_step)
