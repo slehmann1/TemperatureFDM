@@ -22,20 +22,6 @@ class Mesh:
                     self.nodes.append(Node(id, x, y))
                 id += 1
 
-    def get_node_temp_or_none(self, x: int, y: int):
-        try:
-            temp = self.nodes[self.get_node_id(x, y)].temp[-1]
-            return temp
-        except (IndexError, TypeError):
-            return None
-
-    def get_node_id(self, x: int, y: int):
-        """Determines the node id in a mesh based on the way the mesh is generated"""
-        id = x * self.mesh_size + y
-        if id < 0:
-            return None
-        return id
-
     def init_values(
         self, boundary_conditions: List[Tuple[int, int, float]], initial_temp: float
     ):
@@ -54,6 +40,25 @@ class Mesh:
             node_id = self.get_node_id(bc_tuple[0], bc_tuple[1])
             self.nodes[node_id].temp[0] = bc_tuple[2]
             self.nodes[node_id].is_fixed_temp = True
+
+    def get_node_temp_or_none(self, x: int, y: int):
+        """Gets the most recently calculated node temperature at a given set of coordinates
+
+        Returns:
+            float or None: returns float if the coordinates exist and None if they do not
+        """
+        try:
+            temp = self.nodes[self.get_node_id(x, y)].temp[-1]
+            return temp
+        except (IndexError, TypeError):
+            return None
+
+    def get_node_id(self, x: int, y: int):
+        """Determines the node id in a mesh based on the way the mesh is generated"""
+        id = x * self.mesh_size + y
+        if id < 0:
+            return None
+        return id
 
 
 class Node:

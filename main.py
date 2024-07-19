@@ -5,15 +5,13 @@ import numpy as np
 from mesh import Mesh
 
 
-def get_temp(
-    tau: float, t_node_i: float, t_left=0.0, t_right=0.0, t_top=0.0, t_bottom=0.0
-):
-    # Driving FDM Equation Without Heat Generation
-    # T_Node_i+1 = tau(T_left_i + T_top_i + T_right_i + T_bottom_i) + (1-4tau)(T_Node_i)
-    return tau * (t_left + t_top + t_right + t_bottom) + (1 - 4 * tau) * (t_node_i)
-
-
 def calc_time_iteration(mesh: Mesh, tau: float):
+    """Calculates nodal temperature values in a mesh for a timestep
+
+    Args:
+        mesh (Mesh): The mesh to calculate temperatures for
+        tau (float): Mesh fourier number
+    """
     for x in range(0, mesh.mesh_size):
         for y in range(0, mesh.mesh_size):
             t_left = mesh.get_node_temp_or_none(x - 1, y)
@@ -37,7 +35,39 @@ def calc_time_iteration(mesh: Mesh, tau: float):
             )
 
 
+def get_temp(
+    tau: float,
+    t_node_i: float,
+    t_left: float,
+    t_right: float,
+    t_top: float,
+    t_bottom: float,
+):
+    """Calculates the temperature of a given node at the next timestep
+
+    Args:
+        tau (float): Mesh fourier number
+        t_node_i (float): Temperature at the given node at the current timestep
+        t_left (float): Temperature at the left node at the current timestep.
+        t_right (float): Temperature at the right node at the current timestep.
+        t_top (float): Temperature at the top node at the current timestep.
+        t_bottom (float): Temperature at the bottom node at the current timestep.
+
+    Returns:
+        float: Temperature at the node at the next timestep
+    """
+    # Driving FDM Equation Without Heat Generation
+    # T_Node_i+1 = tau(T_left_i + T_top_i + T_right_i + T_bottom_i) + (1-4tau)(T_Node_i)
+    return tau * (t_left + t_top + t_right + t_bottom) + (1 - 4 * tau) * (t_node_i)
+
+
 def print_mesh_temps(mesh: Mesh, index: int):
+    """Prints temperatures in a mesh for a given time index
+
+    Args:
+        mesh (Mesh): Mesh to print temperatures for
+        index (int): Time index of interest
+    """
     line = ""
     for x in range(0, mesh.mesh_size):
         for y in range(0, mesh.mesh_size):
@@ -48,6 +78,12 @@ def print_mesh_temps(mesh: Mesh, index: int):
 
 
 def show_plot(mesh: Mesh, time_step: float):
+    """Plots a mesh for all time iterations
+
+    Args:
+        mesh (Mesh): The mesh to plot nodal temperatures for
+        time_step (float): The step in time between each time index
+    """
     plt.plot()
     plt.ion()
     plt.show()
@@ -88,12 +124,14 @@ if __name__ == "__main__":
     heat_capacity = 0.896  # J/g-k for Aluminium
     total_time = 10  # s
     time_step = 0.1  # s
+    mesh_size = 25
+    init_values = 21.1
 
     tau = k / density / heat_capacity * time_step
     print(f"Tau {tau}")
 
-    mesh = Mesh(25)
-    mesh.init_values(bcs, 21.1)
+    mesh = Mesh(mesh_size)
+    mesh.init_values(bcs, init_values)
 
     for _ in range(0, int(total_time / time_step)):
         calc_time_iteration(mesh, tau)
