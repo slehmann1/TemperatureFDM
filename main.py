@@ -11,9 +11,7 @@ class Mesh:
     Handles the Mesh and Boundary Conditions
     """
 
-    DEFAULT_SIZE = 10  # Width and height in terms of number of nodes
-
-    def __init__(self, mesh_size: int = DEFAULT_SIZE):
+    def __init__(self, mesh_size: int):
         self.mesh_size = mesh_size
         self.nodes = []
         self.elements = []
@@ -29,28 +27,32 @@ class Mesh:
                     self.nodes.append(Node(id, x, y))
                 id += 1
 
-    def get_node_temp_or_nil(self, x: int, y: int):
+    def get_node_temp_or_none(self, x: int, y: int):
         try:
-            return self.nodes[self.get_node_id(x, y)].temp[-1]
-        except IndexError:
-            return 0.0
+            temp = self.nodes[self.get_node_id(x, y)].temp[-1]
+            return temp
+        except (IndexError, TypeError):
+            return None
 
     def get_node_id(self, x: int, y: int):
         """Determines the node id in a mesh based on the way the mesh is generated"""
-        return x * self.mesh_size + y
+        id = x * self.mesh_size + y
+        if id < 0:
+            return None
+        return id
 
     def init_values(
-        self, boundary_conditions: List[Tuple[int, int, float]], initial_guess: float
+        self, boundary_conditions: List[Tuple[int, int, float]], initial_temp: float
     ):
         """Sets the initial values for the mesh
 
         Args:
             boundary_conditions (List[Tuple[int, int, float]]): In the format x, y, temperature. Only nodes with boundary conditions are specified
-            initial_guess float: The value to default all node temperatures to
+            initial_temp float: The value to default all node temperatures to
         """
         # Set all node values
         for node in self.nodes:
-            node.temp.append(initial_guess)
+            node.temp.append(initial_temp)
 
         # Set boundary conditions
         for bc_tuple in boundary_conditions:
@@ -88,10 +90,21 @@ def get_temp(
 def calc_time_iteration(mesh: Mesh, tau: float):
     for x in range(0, mesh.mesh_size):
         for y in range(0, mesh.mesh_size):
-            t_left = mesh.get_node_temp_or_nil(x - 1, y)
-            t_right = mesh.get_node_temp_or_nil(x + 1, y)
-            t_top = mesh.get_node_temp_or_nil(x, y + 1)
-            t_bottom = mesh.get_node_temp_or_nil(x, y - 1)
+            t_left = mesh.get_node_temp_or_none(x - 1, y)
+            t_right = mesh.get_node_temp_or_none(x + 1, y)
+            t_top = mesh.get_node_temp_or_none(x, y + 1)
+            t_bottom = mesh.get_node_temp_or_none(x, y - 1)
+
+            # Check if edge or corner boundary and mirror where appropriate
+            if t_left is None:
+                t_left = t_right
+            if t_right is None:
+                t_right = t_left
+            if t_top is None:
+                t_top = t_bottom
+            if t_bottom is None:
+                t_bottom = t_top
+
             t_node_i = mesh.nodes[mesh.get_node_id(x, y)].temp[-1]
             mesh.nodes[mesh.get_node_id(x, y)].temp.append(
                 get_temp(tau, t_node_i, t_left, t_right, t_top, t_bottom)
@@ -153,7 +166,7 @@ if __name__ == "__main__":
     tau = k / density / heat_capacity * time_step
     print(f"Tau {tau}")
 
-    mesh = Mesh()
+    mesh = Mesh(25)
     mesh.init_values(bcs, 21.1)
 
     for _ in range(0, int(total_time / time_step)):
