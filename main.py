@@ -1,3 +1,8 @@
+# Author: Sam Lehmann
+# Network with him at: https://www.linkedin.com/in/samuellehmann/
+# Date: 2024-18-07
+# Description: Calculates temperature results for a nodal mesh using the finite difference method.
+
 import time
 
 import matplotlib.colors as mcol
