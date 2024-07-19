@@ -1,3 +1,5 @@
+import time
+
 import matplotlib.colors as mcol
 import matplotlib.pyplot as plt
 import numpy as np
@@ -18,6 +20,18 @@ def calc_time_iteration(mesh: Mesh, tau: float):
             t_right = mesh.get_node_temp_or_none(x + 1, y)
             t_top = mesh.get_node_temp_or_none(x, y + 1)
             t_bottom = mesh.get_node_temp_or_none(x, y - 1)
+
+            if x == 0:
+                t_left = None
+
+            if y == 0:
+                t_bottom = None
+
+            if x == mesh.mesh_size - 1:
+                t_right = None
+
+            if y == mesh.mesh_size - 1:
+                t_top = None
 
             # Check if edge or corner boundary and mirror where appropriate
             if t_left is None:
@@ -94,6 +108,7 @@ def show_plot(mesh: Mesh, time_step: float):
     )
 
     for time_index in range(0, len(mesh.nodes[0].temp)):
+        start = time.time()
 
         plt.title(f"Temperature for time = {time_step*time_index:.2f}")
 
@@ -113,18 +128,18 @@ def show_plot(mesh: Mesh, time_step: float):
             plt.gcf().colorbar(im)
 
         plt.draw()
-        plt.pause(time_step)
+        plt.pause(time_step - (time.time() - start))
 
 
 if __name__ == "__main__":
 
-    bcs = [(5, 5, 52.2)]
+    bcs = [(10, 10, 122.5), (25, 30, 100), (45, 40, 85)]
     k = 167  # W/m-k for Aluminium
     density = 2700  # kg/m^3 for Aluminium
-    heat_capacity = 0.896  # J/g-k for Aluminium
+    heat_capacity = 0.896  # 0.896 J/g-k for Aluminium
     total_time = 10  # s
     time_step = 0.1  # s
-    mesh_size = 25
+    mesh_size = 51
     init_values = 21.1
 
     tau = k / density / heat_capacity * time_step
